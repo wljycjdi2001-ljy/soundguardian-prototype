@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SoundGuardian 프로토타입</title>
+<style>
+  :root{
+    --page:#e9edf2; --card:#ffffff; --text:#191f28; --sub:#6b7684; --faint:#8b95a1; --line:#e5e8eb;
+    --blue:#3182f6; --blueSoft:#e8f3ff; --red:#f04452; --redSoft:#ffeef0; --green:#12a150; --greenSoft:#e6f7ee;
+    --orange:#f08c00; --orangeSoft:#fff4e1; --gray:#f2f4f6;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--page);color:var(--text);
+    font-family:"Apple SD Gothic Neo","Pretendard","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;font-size:14px;letter-spacing:-.2px}
+  button{font-family:inherit;letter-spacing:inherit}
+  .app{display:grid;grid-template-rows:52px 1fr;height:100vh;min-height:700px}
+  header{display:flex;align-items:center;gap:12px;padding:0 20px}
+  .logo{font-weight:800;font-size:18px}
+  .logo span{color:var(--blue)}
+  .tag{font-size:12px;color:var(--sub);background:#fff;border-radius:999px;padding:4px 10px}
+  .spacer{flex:1}
+  .hbtn{border:0;background:#fff;color:var(--text);border-radius:10px;padding:8px 12px;font-size:13px;cursor:pointer;font-weight:600}
+  .hbtn:hover{background:#f7f8fa}
+  .main{display:grid;grid-template-columns:240px 1fr 330px;gap:14px;padding:0 14px 14px;min-height:0}
+
+  /* ---------- demo console (left) ---------- */
+  .console{background:#dfe4ea;border-radius:18px;padding:14px;overflow:auto}
+  .console h3{margin:0 0 2px;font-size:13px;color:#4e5968}
+  .console .hint{font-size:11px;color:var(--faint);margin-bottom:10px;line-height:1.4}
+  .ctl{display:flex;align-items:center;justify-content:space-between;padding:7px 2px;font-size:13px;color:#333d4b}
+  .tog{width:42px;height:24px;border-radius:12px;background:#b0b8c1;position:relative;cursor:pointer;transition:.15s;flex:none}
+  .tog::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.15s}
+  .tog.on{background:var(--blue)}
+  .tog.on::after{left:21px}
+  .tog.brake.on{background:var(--red)}
+  .tog.flash,.cbtn.flash,input.flash{box-shadow:0 0 0 4px rgba(49,130,246,.45)}
+  input[type=range]{width:110px;accent-color:var(--blue)}
+  .val{font-size:12px;color:var(--sub);width:50px;text-align:right;font-variant-numeric:tabular-nums}
+  .sep{height:1px;background:#cfd6de;margin:8px 0}
+  .cbtn{width:100%;border:0;border-radius:10px;padding:9px 10px;margin-top:6px;background:#fff;color:#333d4b;font-size:12.5px;cursor:pointer;text-align:left}
+  .cbtn.hold.active{background:var(--red);color:#fff}
+  .cbtn.dark{background:#333d4b;color:#fff;text-align:center;font-weight:700}
+  .cbtn:disabled{opacity:.45;cursor:not-allowed}
+
+  /* ---------- car display (center) ---------- */
+  .car{display:flex;flex-direction:column;min-height:0}
+  .carlabel{font-size:12px;color:var(--sub);margin:0 0 6px 6px}
+  .bezel{flex:1;background:#14171c;border-radius:26px;padding:12px;min-height:0;box-shadow:0 10px 30px rgba(20,23,28,.25)}
+  .screen{position:relative;height:100%;background:var(--gray);border-radius:16px;overflow:hidden}
+  .view{position:absolute;inset:0;padding:26px 30px;display:none;flex-direction:column;overflow:auto}
+  .view.show{display:flex}
+  .h1{font-size:30px;font-weight:800;line-height:1.3;margin:0}
+  .h2{font-size:16px;color:var(--sub);margin:6px 0 0;line-height:1.5}
+  .cardw{background:#fff;border-radius:16px;padding:16px}
+  .cardw h4{margin:0 0 10px;font-size:14px;color:var(--sub);font-weight:600}
+  .row{display:flex;gap:12px}
+  .btnp{border:0;border-radius:14px;padding:15px 18px;font-size:16px;font-weight:700;background:var(--blue);color:#fff;cursor:pointer}
+  .btns{border:0;border-radius:14px;padding:15px 18px;font-size:16px;font-weight:700;background:#fff;color:var(--text);cursor:pointer}
+  .btnp:hover{filter:brightness(1.05)} .btns:hover{background:#f9fafb}
+
+  /* driving */
+  .listen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:16px}
+  .pulse{width:96px;height:96px;border-radius:50%;background:var(--blueSoft);display:flex;align-items:center;justify-content:center;position:relative}
+  .pulse::before{content:"";position:absolute;inset:0;border-radius:50%;background:var(--blue);opacity:.18;animation:pl 1.8s ease-out infinite}
+  .pulse i{width:34px;height:34px;border-radius:50%;background:var(--blue)}
+  @keyframes pl{0%{transform:scale(1);opacity:.25}100%{transform:scale(1.9);opacity:0}}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .stat{background:#fff;border-radius:14px;padding:14px 16px}
+  .stat .k{font-size:13px;color:var(--sub)} .stat .v{font-size:22px;font-weight:800;margin-top:4px}
+  .voice{position:absolute;left:50%;top:18px;transform:translateX(-50%);background:#191f28;color:#fff;border-radius:999px;padding:12px 20px;
+    font-size:16px;font-weight:600;display:none;z-index:4;white-space:nowrap;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+  .voice b{color:#7cc4ff;margin-right:8px}
+
+  /* report */
+  .rgrid{display:grid;grid-template-columns:1.1fr 1fr;gap:12px;margin-top:18px}
+  .snap{width:100%;border-radius:10px;background:#0f1520;display:block}
+  .legend{font-size:12px;color:var(--sub);margin-top:6px}
+  .legend span{display:inline-block;width:10px;height:10px;border-radius:2px;margin:0 4px 0 10px;vertical-align:-1px}
+  .actions{display:flex;gap:10px;margin-top:16px}
+  .foot{font-size:12.5px;color:var(--faint);margin-top:10px}
+
+  /* repro */
+  .prog{display:flex;gap:6px;margin:16px 0 18px}
+  .prog div{flex:1;height:6px;border-radius:3px;background:#d1d6db}
+  .prog div.done{background:var(--blue)} .prog div.cur{background:#93c0fb}
+  .instr{font-size:28px;font-weight:800;line-height:1.35}
+  .checks{margin-top:18px;display:flex;flex-direction:column;gap:8px}
+  .check{background:#fff;border-radius:12px;padding:12px 14px;font-size:15px;display:flex;align-items:center;gap:10px}
+  .check .ic{width:24px;height:24px;border-radius:50%;background:#e5e8eb;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;flex:none}
+  .check.ok .ic{background:var(--blue)}
+  .check .sm{color:var(--sub);font-size:13px;margin-left:auto}
+
+  /* mechanic */
+  .playwrap{position:relative}
+  .playhead{position:absolute;top:0;bottom:0;width:3px;background:#fff;box-shadow:0 0 8px #fff;display:none}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{border:0;background:var(--gray);border-radius:999px;padding:10px 14px;font-size:14px;cursor:pointer;color:var(--text)}
+  .chip.sel{background:var(--blue);color:#fff}
+
+  /* repair */
+  .bars{display:flex;gap:28px;align-items:flex-end;height:180px;padding:10px 20px 0}
+  .bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+  .bar .b{width:70%;border-radius:10px 10px 4px 4px;transition:height 1.2s ease}
+  .bar .l{font-size:14px;color:var(--sub);margin-top:8px}
+  .bar .n{font-size:16px;font-weight:800;margin-bottom:6px}
+  .states{display:flex;gap:8px;margin-top:14px}
+  .state{flex:1;text-align:center;border-radius:12px;padding:12px;background:var(--gray);color:var(--sub);font-weight:700}
+  .state.on{background:var(--greenSoft);color:var(--green)}
+
+  /* navi */
+  .place{background:#fff;border-radius:14px;padding:16px;display:flex;align-items:center;gap:12px;margin-top:10px}
+  .place .nm{font-size:17px;font-weight:700} .place .ds{font-size:13px;color:var(--sub);margin-top:2px}
+  .place button{margin-left:auto}
+
+  /* ---------- brain panel (right) ---------- */
+  .brain{background:#fff;border-radius:18px;padding:16px;overflow:auto}
+  .brain h3{margin:0;font-size:15px}
+  .brain .hint{font-size:11.5px;color:var(--faint);margin:2px 0 12px}
+  .sec{margin-bottom:14px}
+  .sec .t{font-size:12.5px;color:var(--sub);font-weight:600;margin-bottom:6px}
+  #spec{width:100%;height:120px;border-radius:10px;background:#0f1520;display:block}
+  .speclegend{display:flex;justify-content:space-between;font-size:11px;color:var(--faint);margin-top:4px}
+  .sits{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+  .sit{background:var(--gray);border-radius:9px;padding:7px 0 6px;text-align:center;font-size:12px;color:var(--sub);transition:.2s}
+  .sit small{display:block;font-size:10px;color:var(--green);margin-top:1px}
+  .sit.cur{background:var(--blue);color:#fff}
+  .sit.cur small{color:#d6e8ff}
+  .flags{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+  .flag{font-size:11px;padding:3px 8px;border-radius:999px;background:var(--gray);color:var(--faint)}
+  .flag.on{background:var(--orangeSoft);color:var(--orange)}
+  .judge{border-radius:12px;padding:12px 14px;background:var(--gray);transition:.2s}
+  .judge .big{font-size:16px;font-weight:800}
+  .judge .why{font-size:12.5px;color:var(--sub);margin-top:3px;line-height:1.45}
+  .judge.rec{background:var(--redSoft)} .judge.rec .big{color:var(--red)}
+  .judge.skip{background:var(--blueSoft)} .judge.skip .big{color:var(--blue)}
+  .judge.low{background:var(--orangeSoft)} .judge.low .big{color:var(--orange)}
+  .cmp{font-size:13px;margin-top:6px;color:var(--sub)}
+  .cmp b{color:var(--text)}
+  .stage{display:flex;gap:4px;margin-top:6px}
+  .stage div{flex:1;text-align:center;font-size:11.5px;padding:7px 0;border-radius:8px;background:var(--gray);color:var(--faint)}
+  .stage div.on1{background:var(--blueSoft);color:var(--blue);font-weight:700}
+  .stage div.on2{background:var(--orangeSoft);color:var(--orange);font-weight:700}
+  .recs{font-size:12.5px;color:var(--sub);margin-top:6px;line-height:1.6}
+
+  /* ---------- demo overlays ---------- */
+  body.demo .main{padding-bottom:74px}
+  .cap{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(25,31,40,.94);color:#fff;border-radius:16px;
+    padding:14px 26px;font-size:22px;font-weight:700;z-index:40;display:none;white-space:nowrap;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+  .ring{position:fixed;border:3px solid var(--blue);border-radius:16px;box-shadow:0 0 0 6px rgba(49,130,246,.18);z-index:35;pointer-events:none;display:none;transition:all .4s ease}
+  .title{position:fixed;inset:0;background:#fff;z-index:50;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center}
+  .title h1{margin:0;font-size:60px;font-weight:800}
+  .title h1 span{color:var(--blue)}
+  .title .lead{font-size:28px;font-weight:700}
+  .title .sub{font-size:16px;color:var(--sub);line-height:1.7}
+  .title .sdk{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+  .title .sdk span{background:var(--gray);border-radius:999px;padding:7px 14px;font-size:15px}
+  .count{position:fixed;inset:0;background:#fff;z-index:60;display:none;align-items:center;justify-content:center;font-size:120px;font-weight:800;color:#d1d6db}
+  .count.flash{background:#191f28}
+  .start{position:fixed;inset:0;background:rgba(233,237,242,.97);display:flex;align-items:center;justify-content:center;z-index:70}
+  .start .box{background:#fff;border-radius:22px;padding:32px;width:520px;text-align:center}
+  .start h1{margin:0 0 6px;font-size:28px}
+  .start p{color:var(--sub);line-height:1.6;margin:6px 0 20px}
+  .start .btnp,.start .btns{width:100%;margin-top:8px}
+  .start .btns{background:var(--gray)}
+  .start small{display:block;color:var(--faint);margin-top:14px;line-height:1.6}
+  .toast{position:fixed;left:50%;top:64px;transform:translateX(-50%);background:#191f28;color:#fff;border-radius:12px;padding:10px 16px;font-size:13px;display:none;z-index:45}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">Sound<span>Guardian</span></div>
+    <div class="tag">프로토타입 · 웹 동작 시뮬레이션</div>
+    <div class="spacer"></div>
+    <div class="tag" id="narrState">나레이션 없음</div>
+    <button class="hbtn" id="narrBtn">나레이션 불러오기</button>
+    <input type="file" id="narrFiles" accept="audio/*" multiple hidden>
+    <button class="hbtn" id="dlBtn" style="display:none">소리 트랙 받기</button>
+  </header>
+
+  <div class="main">
+    <!-- LEFT: demo console -->
+    <aside class="console" id="console">
+      <h3>데모 조작판</h3>
+      <div class="hint">Pleos 에뮬레이터의 Virtual Console 역할입니다. 실제 앱 화면이 아니에요.</div>
+      <div class="ctl">속도<input id="speed" type="range" min="0" max="80" value="0"><span class="val" id="speedV">0 km/h</span></div>
+      <div class="ctl">조향각<input id="steer" type="range" min="-540" max="540" value="0"><span class="val" id="steerV">0°</span></div>
+      <div class="ctl">브레이크 (B)<div class="tog brake" data-k="brake"></div></div>
+      <div class="ctl">에어컨<div class="tog" data-k="ac"></div></div>
+      <div class="ctl">와이퍼<div class="tog" data-k="wiper"></div></div>
+      <div class="ctl">창문 열림<div class="tog" data-k="window"></div></div>
+      <div class="ctl">음악<div class="tog" data-k="music"></div></div>
+      <div class="ctl">방향지시등<div class="tog" data-k="turn"></div></div>
+      <div class="sep"></div>
+      <div class="ctl">패드 마모 차량<br>(제동 시 끽)<div class="tog" data-k="fault"></div></div>
+      <button class="cbtn hold" id="squealBtn">끽 소리 직접 내기 (누르는 동안, S)</button>
+      <button class="cbtn" id="gleoBtn">"글레오, 방금 소리 기록해줘"</button>
+      <button class="cbtn dark" id="endBtn">운행 종료 (문 열기)</button>
+    </aside>
+
+    <!-- CENTER: car display -->
+    <section class="car">
+      <div class="carlabel">차량 화면 (Pleos Connect)</div>
+      <div class="bezel"><div class="screen" id="screen">
+        <div class="voice" id="voice"></div>
+
+        <div class="view show" id="vDrive">
+          <div class="listen">
+            <div class="pulse"><i></i></div>
+            <div class="h1" id="driveTitle">듣고 있어요</div>
+            <div class="h2" id="driveSub">운전 중에는 화면 알림 없이, 필요할 때만 음성으로 알려 드려요</div>
+          </div>
+          <div class="stats">
+            <div class="stat"><div class="k">지금 속도</div><div class="v" id="stSpeed">0 km/h</div></div>
+            <div class="stat"><div class="k">지금 상황</div><div class="v" id="stSit">정차</div></div>
+            <div class="stat"><div class="k">오늘 기록</div><div class="v" id="stRec">0건</div></div>
+          </div>
+        </div>
+
+        <div class="view" id="vReport">
+          <div class="h1" id="repTitle">브레이크 쪽 점검을 권해요</div>
+          <div class="h2" id="repSub">서로 다른 날 3번, 모두 브레이크를 밟을 때 났어요</div>
+          <div class="rgrid">
+            <div class="cardw"><h4>언제 났나요</h4><img class="snap" id="repImg" alt="">
+              <div class="legend"><span style="background:#ffd43b"></span>높은 음 <span style="background:var(--red)"></span>브레이크 밟은 구간</div></div>
+            <div class="cardw" id="cmpCard"><h4>지난달 같은 교차로와 비교</h4><canvas id="cmp" width="560" height="250" style="width:100%"></canvas>
+              <div class="legend"><span style="background:#adb5bd"></span>지난달 <span style="background:var(--red)"></span>오늘 · 같은 곳, 같은 속도로 제동할 때</div></div>
+          </div>
+          <div class="actions">
+            <button class="btnp" id="goRepro">재현 테스트 하기</button>
+            <button class="btns" id="goMech">정비사에게 보여 주기</button>
+            <button class="btns" id="goNavi">가까운 정비소</button>
+            <button class="btns" id="goRepair">수리 전후 비교</button>
+          </div>
+          <div class="foot">고장 판정이 아니에요. 정비사가 확인할 수 있게 기록을 남겨요.</div>
+        </div>
+
+        <div class="view" id="vRepro">
+          <div class="h2" style="margin:0">재현 테스트 · 차가 안내하고, 조작은 차량 신호로 확인해요</div>
+          <div class="prog" id="prog"><div></div><div></div><div></div><div></div></div>
+          <div class="instr" id="instr"></div>
+          <div class="h2" id="instrSub"></div>
+          <div class="checks" id="checks"></div>
+          <div style="margin-top:16px"><button class="btnp" id="safeBtn" style="display:none">네, 안전한 곳이에요</button></div>
+        </div>
+
+        <div class="view" id="vMech">
+          <div class="h1">정비사 모드</div>
+          <div class="h2" id="mechSub">차주 기록 3건 · 원래 소리와 그 순간의 차량 기록</div>
+          <div class="rgrid" style="grid-template-columns:1.3fr 1fr">
+            <div class="cardw"><h4>기록된 소리</h4>
+              <div class="playwrap"><img class="snap" id="mechImg" alt=""><div class="playhead" id="playhead"></div></div>
+              <div class="legend"><span style="background:#ffd43b"></span>높은 음 <span style="background:var(--red)"></span>브레이크</div>
+              <button class="btnp" id="mechPlay" style="margin-top:12px;width:100%">차량 스피커로 듣기</button></div>
+            <div class="cardw"><h4>그 순간 차량 기록</h4>
+              <div id="mechInfo" style="font-size:15px;line-height:1.9"></div>
+              <h4 style="margin-top:14px">조건을 골라 재현 테스트</h4>
+              <div class="chips" id="mechChips">
+                <button class="chip">에어컨 켜고 공회전 1분</button>
+                <button class="chip">시속 20km 우회전하며 제동 2회</button>
+                <button class="chip">저속 제동 3회</button>
+              </div></div>
+          </div>
+        </div>
+
+        <div class="view" id="vRepair">
+          <div class="h1" id="rpTitle">정비 후 소리가 줄었어요</div>
+          <div class="h2">정비 후 2주 · 같은 상황(제동 중)의 소리를 정비 전과 비교 <span style="color:var(--faint)">(시뮬레이션)</span></div>
+          <div class="cardw" style="margin-top:18px">
+            <h4>제동할 때 높은 음 (평소 대비)</h4>
+            <div class="bars">
+              <div class="bar"><div class="n" id="bvBefore">+31 dB</div><div class="b" id="bBefore" style="height:0;background:var(--red)"></div><div class="l">정비 전</div></div>
+              <div class="bar"><div class="n" id="bvAfter">+2 dB</div><div class="b" id="bAfter" style="height:0;background:var(--green)"></div><div class="l">정비 후</div></div>
+            </div>
+            <div class="states"><div class="state on">줄었음</div><div class="state">그대로</div><div class="state">커짐</div></div>
+          </div>
+          <div class="foot">소리가 그대로거나 커졌다면, 이 기록을 그대로 정비소에 보여 주면 돼요.</div>
+        </div>
+
+        <div class="view" id="vNavi">
+          <div class="h1">가까운 정비소</div>
+          <div class="h2">기록을 보여 주면 정비사가 바로 확인할 수 있어요</div>
+          <div id="naviList" style="margin-top:8px"></div>
+          <div class="foot">지점 이름과 거리는 예시예요. 실제로는 공개된 지점 좌표로 NaviHelper 길 안내를 요청해요.</div>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- RIGHT: what the app is judging -->
+    <aside class="brain" id="brain">
+      <h3>앱이 판단하는 과정</h3>
+      <div class="hint">데모 설명용 패널이에요. 운전 중 차량 화면에는 보이지 않아요.</div>
+      <div class="sec" id="secSound"><div class="t">지금 듣는 소리 (최근 15초)</div>
+        <canvas id="spec" width="600" height="240"></canvas>
+        <div class="speclegend"><span>위로 갈수록 높은 음 (최대 8kHz)</span><span>빨간 띠 = 브레이크</span></div></div>
+      <div class="sec" id="secSit"><div class="t">지금 상황 · 상황별 평소 소리</div>
+        <div class="sits" id="sits"></div>
+        <div class="flags" id="flags"></div></div>
+      <div class="sec" id="secJudge"><div class="t">판단</div>
+        <div class="judge" id="judge"><div class="big">평소 소리와 비슷해요</div><div class="why">같은 상황의 평소 소리와 계속 비교하고 있어요</div></div>
+        <div class="cmp" id="cmpLine">평소 소리와 비교 <b>비슷함</b></div></div>
+      <div class="sec" id="secStage"><div class="t">기록과 단계</div>
+        <div class="stage" id="stage"><div>관찰 중</div><div>점검 권장</div><div>조기 점검 권장</div></div>
+        <div class="recs" id="recs"></div></div>
+    </aside>
+  </div>
+</div>
+
+<div class="cap" id="cap"></div>
+<div class="ring" id="ring"></div>
+<div class="title" id="title"></div>
+<div class="count" id="count"></div>
+<div class="toast" id="toast"></div>
+<div class="start" id="start">
+  <div class="box">
+    <h1>Sound<span style="color:var(--blue)">Guardian</span></h1>
+    <p>정비소에선 안 나는 그 소리, 차가 대신 기억하고 재현합니다.</p>
+    <button class="btnp" id="demoBtn">시연 영상 모드 (자동 재생 · 약 2분)</button>
+    <button class="btns" id="manualBtn">직접 조작해 보기</button>
+    <small>시연 영상 모드: 화면 녹화를 먼저 켜 주세요. 나레이션 파일이 있으면 위쪽 '나레이션 불러오기'로 먼저 불러오세요.<br>
+    끝나면 영상과 똑같은 타이밍의 소리 트랙(WAV)이 저장됩니다.</small>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const now = () => performance.now();
+
+  // ---------------- vehicle state ----------------
+  const S = {speed:0, steer:0, brake:false, ac:false, wiper:false, window:false, music:false, turn:false, fault:false, manual:false, lastBrakeOff:-1e9};
+
+  // ---------------- audio engine ----------------
+  let ac, master, fx, narrBus, analyser, recDest, freq, roadG, squealG, wiperG, musicG, acG;
+  function noiseSrc(){
+    const len=ac.sampleRate*2, buf=ac.createBuffer(1,len,ac.sampleRate), d=buf.getChannelData(0);
+    let b0=0,b1=0,b2=0;
+    for(let i=0;i<len;i++){const w=Math.random()*2-1; b0=.997*b0+.029*w; b1=.985*b1+.032*w; b2=.95*b2+.048*w; d[i]=(b0+b1+b2+w*.05)*.6;}
+    const s=ac.createBufferSource(); s.buffer=buf; s.loop=true; return s;
+  }
+  function initAudio(){
+    ac = new (window.AudioContext||window.webkitAudioContext)();
+    master = ac.createGain(); master.connect(ac.destination);
+    recDest = ac.createMediaStreamDestination(); master.connect(recDest);
+    fx = ac.createGain(); fx.gain.value = .9;                 // simulated car sounds (analysed)
+    analyser = ac.createAnalyser(); analyser.fftSize = 2048; analyser.smoothingTimeConstant = .5;
+    fx.connect(analyser); analyser.connect(master);
+    narrBus = ac.createGain(); narrBus.connect(master);        // narration (not analysed)
+    freq = new Float32Array(analyser.frequencyBinCount);
+    const n=noiseSrc(), lp=ac.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=900;
+    roadG=ac.createGain(); roadG.gain.value=.01; n.connect(lp).connect(roadG).connect(fx); n.start();
+    const o=ac.createOscillator(); o.frequency.value=4200; const v=ac.createOscillator(); v.frequency.value=6; const vg=ac.createGain(); vg.gain.value=25; v.connect(vg).connect(o.frequency); v.start();
+    squealG=ac.createGain(); squealG.gain.value=0; o.connect(squealG).connect(fx); o.start();
+    const w=noiseSrc(), bp=ac.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=1600; bp.Q.value=.8;
+    wiperG=ac.createGain(); wiperG.gain.value=0; w.connect(bp).connect(wiperG).connect(fx); w.start();
+    musicG=ac.createGain(); musicG.gain.value=0; musicG.connect(fx);
+    [220,277.18,329.63,440].forEach((f,i)=>{const x=ac.createOscillator(); x.type=i%2?'triangle':'sine'; x.frequency.value=f; const g=ac.createGain(); g.gain.value=.05; x.connect(g).connect(musicG); x.start();});
+    const a=noiseSrc(), alp=ac.createBiquadFilter(); alp.type='lowpass'; alp.frequency.value=400;
+    acG=ac.createGain(); acG.gain.value=0; a.connect(alp).connect(acG).connect(fx); a.start();
+  }
+  function updateAudio(t){
+    const T=ac.currentTime;
+    roadG.gain.setTargetAtTime((S.speed>0 ? .025+S.speed/80*.11 : .01) + (S.window&&S.speed>0 ? .05 : 0), T, .1);
+    squealG.gain.setTargetAtTime(((S.fault&&S.brake&&S.speed>0) || S.manual) ? .045 : 0, T, .03);
+    wiperG.gain.setTargetAtTime(S.wiper ? (((t/1400)%1)<.35 ? .18 : .01) : 0, T, .05);
+    musicG.gain.setTargetAtTime(S.music ? .5 : 0, T, .2);
+    acG.gain.setTargetAtTime(S.ac ? .05 : 0, T, .15);
+  }
+  function beep(){ const o=ac.createOscillator(), g=ac.createGain(); o.frequency.value=1000; g.gain.value=.25; o.connect(g).connect(master); o.start(); o.stop(ac.currentTime+.12); }
+
+  // ---------------- detection ----------------
+  let tonalSince=null, tonalActive=false, lastProm=0, baseline=null, today=null, lastWiperNote=0;
+  function analyse(){
+    analyser.getFloatFrequencyData(freq);
+    const bin=ac.sampleRate/analyser.fftSize, lo=Math.floor(1500/bin), hi=Math.floor(8000/bin);
+    let prom=-200, pki=lo;
+    for(let i=lo;i<hi;i++){ const v=freq[i]; if(v<-85) continue; let s=0,c=0;
+      for(let k=8;k<=30;k++){ if(i-k>0){s+=freq[i-k];c++;} if(i+k<freq.length){s+=freq[i+k];c++;} }
+      const p=v-s/c; if(p>prom){prom=p;pki=i;} }
+    lastProm=prom; return {tonal:prom>25, hz:pki*bin, prom};
+  }
+  function spectrumSummary(){ const bin=ac.sampleRate/analyser.fftSize, out=[]; for(let f=200;f<=8000;f+=100) out.push(freq[Math.round(f/bin)]); return out; }
+  function situation(){ if(S.speed===0) return '정차'; if(S.brake) return '제동'; if(Math.abs(S.steer)>300) return '조향'; return S.speed<40?'저속':'고속'; }
+
+  const records=[{day:'월요일', place:'회사 앞 교차로', past:true},{day:'수요일', place:'○○사거리', past:true}];
+  let stage=1, lastRec=-1e9, snapImg=null, snapBrake=null, repro=null;
+  function decide(t,a){
+    if(a.tonal){ if(tonalSince===null) tonalSince=t; } else { tonalSince=null; tonalActive=false; }
+    if(S.speed>0 && !a.tonal){ const cur=spectrumSummary(); baseline = baseline ? baseline.map((v,i)=>v*.97+cur[i]*.03) : cur; }
+    if(tonalSince!==null && t-tonalSince>300 && !tonalActive){
+      tonalActive=true;
+      const sit=situation(), brakeNear=S.brake || (t-S.lastBrakeOff)<2000;
+      $('cmpLine').innerHTML=`평소 소리와 비교 <b style="color:var(--red)">다름 · 전에 없던 높은 음 (${(a.hz/1000).toFixed(1)}kHz)</b>`;
+      if(repro){ judge('skip','재현 테스트 중이에요','안내한 조작 구간의 소리를 테스트 결과로 남겨요'); }
+      else if(S.speed===0){ judge('skip','정차 중 소리예요','운행 중이 아니라 판정하지 않아요'); }
+      else if(brakeNear){
+        today=spectrumSummary();
+        judge('rec','증거 기록을 저장했어요','제동할 때의 평소 소리에 없던 높은 음이에요. 앞뒤 소리와 차량 신호를 함께 저장해요');
+        addRecord(t);
+      } else {
+        judge('skip','기록하지 않았어요','브레이크·핸들 조작과 상관없는 소리라 지켜보기만 해요');
+      }
+    }
+    if(!tonalActive && !a.tonal && S.wiper && t-lastWiperNote>2500){ lastWiperNote=t; judge('low','와이퍼 소리는 비중을 낮췄어요','차가 와이퍼가 움직이는 걸 알고 있어서, 이 소리를 이상 소리로 보지 않아요'); }
+    if(!a.tonal && !S.wiper && t-lastJudge>4500 && !tonalActive){ judge('','평소 소리와 비슷해요','같은 상황의 평소 소리와 계속 비교하고 있어요'); $('cmpLine').innerHTML='평소 소리와 비교 <b>비슷함</b>'; }
+  }
+  let lastJudge=0;
+  function judge(kind,big,why){ const j=$('judge'); j.className='judge '+kind; j.innerHTML=`<div class="big">${big}</div><div class="why">${why}</div>`; lastJudge=now(); }
+  function addRecord(t){
+    if(t-lastRec<6000) return; lastRec=t;
+    records.push({day:'오늘', place:'회사 앞 교차로', past:false});
+    renderRecords();
+    setTimeout(()=>{ snapImg=$('spec').toDataURL('image/png'); snapBrake=hist.slice(-300).map(h=>h.brake); }, 4000);
+    const prev=stage; stage = records.length>=3 ? 2 : 1; renderStage();
+    if(stage===2 && prev===1 && !demoRunning) voiceSay('브레이크를 밟을 때 나는 소리를 세 번 기록했어요. 운행이 끝나면 확인해 보세요.');
+  }
+  function renderRecords(){
+    $('recs').innerHTML = `제동 중 높은 음 <b style="color:var(--text)">${records.length}회</b> · 서로 다른 날<br>` + records.map(r=>`${r.day} · ${r.place}${r.past?'':' (방금)'}`).join('<br>');
+    $('stRec').textContent = records.filter(r=>!r.past).length+'건';
+  }
+  function renderStage(){ [...$('stage').children].forEach((d,i)=>d.className = i===stage-1 ? 'on'+stage : ''); }
+
+  // ---------------- spectrogram + situation panel ----------------
+  const spec=$('spec'), sx=spec.getContext('2d'); sx.imageSmoothingEnabled=false;
+  const COLW=2, COLS=spec.width/COLW; // 300 columns = 15 s at 20 cols/s
+  const hist=[];
+  function colorMap(v){ const c=[[15,21,32],[22,52,110],[30,120,190],[80,200,200],[255,212,59],[255,120,60]];
+    const x=Math.max(0,Math.min(.999,v))*(c.length-1), i=Math.floor(x), f=x-i, a=c[i], b=c[i+1];
+    return `rgb(${a[0]+(b[0]-a[0])*f|0},${a[1]+(b[1]-a[1])*f|0},${a[2]+(b[2]-a[2])*f|0})`; }
+  function drawCol(){
+    sx.drawImage(spec,-COLW,0);
+    const bin=ac.sampleRate/analyser.fftSize, H=spec.height-14;
+    for(let y=0;y<H;y+=2){ const fHi=(1-y/H)*8000, fLo=(1-(y+2)/H)*8000; let db=-200;
+      for(let i=Math.floor(fLo/bin);i<=Math.ceil(fHi/bin);i++) if(freq[i]>db) db=freq[i];
+      sx.fillStyle=colorMap((db+105)/60); sx.fillRect(spec.width-COLW,y,COLW,2); }
+    sx.fillStyle = S.brake ? '#f04452' : '#0f1520'; sx.fillRect(spec.width-COLW,H,COLW,14);
+  }
+  const SITS=['정차','저속','고속','제동','조향'];
+  $('sits').innerHTML = SITS.map(s=>`<div class="sit" data-s="${s}">${s}<small>평소 익힘 ✓</small></div>`).join('');
+  const FLAGS=[['ac','에어컨'],['wiper','와이퍼'],['window','창문 열림'],['music','음악'],['turn','방향지시등']];
+  $('flags').innerHTML = FLAGS.map(([k,l])=>`<span class="flag" data-f="${k}">${l}</span>`).join('');
+  let sitOverride=null;
+  function renderSituation(){
+    const cur = sitOverride || situation();
+    document.querySelectorAll('.sit').forEach(e=>e.classList.toggle('cur', e.dataset.s===cur));
+    document.querySelectorAll('.flag').forEach(e=>e.classList.toggle('on', !!S[e.dataset.f]));
+    $('stSit').textContent = situation(); $('stSpeed').textContent = S.speed+' km/h';
+  }
+
+  // ---------------- main loop ----------------
+  function tick(){
+    const t=now(); updateAudio(t); const a=analyse(); decide(t,a);
+    hist.push({brake:S.brake}); if(hist.length>3000) hist.splice(0,1000);
+    drawCol(); renderSituation(); reproTick(a);
+    $('endBtn').disabled = S.speed>0;
+  }
+
+  // ---------------- controls ----------------
+  function setTog(k,v){ if(k==='brake' && S.brake && !v) S.lastBrakeOff=now(); S[k]=v; const el=document.querySelector(`.tog[data-k="${k}"]`); if(el) el.classList.toggle('on',v); if(repro) reproSignal(k,v); }
+  document.querySelectorAll('.tog').forEach(el=>el.addEventListener('click',()=>setTog(el.dataset.k,!S[el.dataset.k])));
+  $('speed').addEventListener('input',()=>{S.speed=+$('speed').value; $('speedV').textContent=S.speed+' km/h';});
+  $('steer').addEventListener('input',()=>{S.steer=+$('steer').value; $('steerV').textContent=S.steer+'°';});
+  const sq=$('squealBtn'), sqOn=()=>{S.manual=true;sq.classList.add('active');}, sqOff=()=>{S.manual=false;sq.classList.remove('active');};
+  sq.addEventListener('mousedown',sqOn); sq.addEventListener('mouseup',sqOff); sq.addEventListener('mouseleave',sqOff);
+  document.addEventListener('keydown',e=>{ if(e.repeat) return; if(e.key==='b'||e.key==='B') setTog('brake',!S.brake); if(e.key==='s'||e.key==='S') sqOn(); });
+  document.addEventListener('keyup',e=>{ if(e.key==='s'||e.key==='S') sqOff(); });
+  $('gleoBtn').addEventListener('click',()=>{ voiceSay('기록했어요. 어디서 들렸는지 말씀해 주시겠어요?'); records.push({day:'오늘',place:'현재 위치 (음성 기록)',past:false}); renderRecords(); });
+  $('endBtn').addEventListener('click',()=>{ if(S.speed>0) return toast('운전 중에는 리포트를 열 수 없어요'); openReport(); });
+  function toast(t){ const el=$('toast'); el.textContent=t; el.style.display='block'; clearTimeout(el._t); el._t=setTimeout(()=>el.style.display='none',3000); }
+
+  // ---------------- car screen views ----------------
+  function setView(id){ document.querySelectorAll('.view').forEach(v=>v.classList.toggle('show', v.id===id)); }
+  let voiceTimer;
+  function voiceBubble(text, ms){ const v=$('voice'); v.innerHTML=`<b>🔊</b>${text}`; v.style.display='block'; clearTimeout(voiceTimer); voiceTimer=setTimeout(()=>v.style.display='none', ms||5000); }
+  function voiceSay(text){ voiceBubble(text); try{ const u=new SpeechSynthesisUtterance(text); u.lang='ko-KR'; speechSynthesis.cancel(); speechSynthesis.speak(u);}catch(e){} }
+
+  function openReport(){
+    setView('vReport');
+    $('repImg').src = snapImg || spec.toDataURL();
+    const n=records.length;
+    $('repTitle').textContent = stage===2 ? '브레이크 쪽 점검을 권해요' : '아직 지켜보는 중이에요';
+    $('repSub').textContent = `서로 다른 날 ${n}번, 모두 브레이크를 밟을 때 났어요`;
+    drawCompare();
+  }
+  function drawCompare(){
+    const c=$('cmp'), x=c.getContext('2d'), W=c.width, H=c.height; x.clearRect(0,0,W,H);
+    const base = baseline || Array.from({length:79},(_,i)=>-62-i*.35);
+    const tod = today || base.map((v,i)=> v+(Math.abs(i*100+200-4200)<150?35:0));
+    const all=[...base,...tod], mn=Math.min(...all)-4, mx=Math.max(...all)+6;
+    const px=i=>34+i*(W-50)/(base.length-1), py=v=>H-26-(v-mn)/(mx-mn)*(H-46);
+    x.strokeStyle='#eef0f3'; x.fillStyle='#8b95a1'; x.font='12px sans-serif';
+    for(let k=0;k<=8;k+=2){ const xx=34+(k*1000-200)/7800*(W-50); x.beginPath(); x.moveTo(xx,10); x.lineTo(xx,H-26); x.stroke(); x.fillText(k+'kHz',xx-14,H-8); }
+    const line=(arr,col,w)=>{x.strokeStyle=col; x.lineWidth=w; x.beginPath(); arr.forEach((v,i)=>i?x.lineTo(px(i),py(v)):x.moveTo(px(i),py(v))); x.stroke();};
+    line(base,'#adb5bd',2.5); line(tod,'#f04452',2.5);
+    let bi=0,bd=-1e9; tod.forEach((v,i)=>{const d=v-base[i]; if(d>bd){bd=d;bi=i;}});
+    x.fillStyle='rgba(240,68,82,.1)'; x.fillRect(px(Math.max(0,bi-2)),10,px(Math.min(base.length-1,bi+2))-px(Math.max(0,bi-2)),H-36);
+    x.fillStyle='#f04452'; x.font='bold 14px sans-serif'; x.fillText(`새로 생긴 소리 ${((bi*100+200)/1000).toFixed(1)}kHz`, Math.min(W-180,px(bi)+8), 28);
+  }
+  $('goRepro').addEventListener('click',startRepro);
+  $('goMech').addEventListener('click',openMech);
+  $('goNavi').addEventListener('click',openNavi);
+  $('goRepair').addEventListener('click',openRepair);
+
+  // ---------------- repro test ----------------
+  const STEPS=[
+    {instr:'차를 세운 채로 시작할게요', sub:'창문을 닫고 음악을 꺼 주세요. 조용해야 정확해요.', checks:['정차','창문 닫힘','음악 꺼짐']},
+    {instr:'에어컨을 켰다가 꺼 주세요', sub:'공회전 소리와 에어컨 소리를 확인해요.', checks:['에어컨 켜짐','에어컨 꺼짐']},
+    {instr:'안전한 곳인가요?', sub:'빈 주차장처럼 안전한 곳에서만 주행 항목을 안내해요.', checks:['안전한 장소 확인']},
+    {instr:'시속 10km 이하로 가다가 가볍게 세 번 제동해 주세요', sub:'브레이크 신호로 실제 조작을 확인하면서 녹음해요.', checks:['1번째 제동','2번째 제동','3번째 제동']},
+  ];
+  function startRepro(){
+    if(S.speed>0) return toast('차를 세운 상태에서 시작할 수 있어요');
+    repro={step:0, ok:{}, acOn:false, brakes:0, squeals:0, wasT:false, done:false, startAt:now()};
+    setView('vRepro'); renderRepro();
+  }
+  function renderRepro(){
+    const st=STEPS[Math.min(repro.step,3)];
+    [...$('prog').children].forEach((d,i)=>d.className = i<repro.step ? 'done' : i===repro.step ? 'cur' : '');
+    if(repro.done){
+      $('instr').textContent=`3번 중 ${Math.min(3,repro.squeals)}번, 같은 소리를 다시 확인했어요`;
+      $('instrSub').textContent='결과를 증거 기록에 붙였어요. 정비사가 그대로 볼 수 있어요.';
+      $('checks').innerHTML=['공회전·에어컨: 이상 없음','저속 제동: 같은 높은 음 재현'].map(c=>`<div class="check ok"><div class="ic">✓</div>${c}</div>`).join('');
+      $('safeBtn').style.display='none'; return;
+    }
+    $('instr').textContent=st.instr; $('instrSub').textContent=st.sub;
+    $('checks').innerHTML=st.checks.map((c,i)=>{ const ok=repro.ok[repro.step+':'+i]; const extra = repro.step===3 && ok && repro.sq && repro.sq[i] ? '<span class="sm">같은 높은 음 확인</span>' : '';
+      return `<div class="check ${ok?'ok':''}"><div class="ic">${ok?'✓':''}</div>${c}${extra}</div>`; }).join('');
+    $('safeBtn').style.display = repro.step===2 ? 'inline-block' : 'none';
+  }
+  function reproSignal(k,v){
+    if(!repro || repro.done) return;
+    if(repro.step===1 && k==='ac'){ if(v){repro.ok['1:0']=true; repro.acOn=true;} else if(repro.acOn){ repro.ok['1:1']=true; } }
+    if(repro.step===3 && k==='brake' && v && S.speed>0 && S.speed<=10){ repro.pressAt=now(); }
+    if(repro.step===3 && k==='brake' && !v && repro.pressAt){ const i=repro.brakes; repro.ok['3:'+i]=true; repro.sq=repro.sq||{}; repro.sq[i]=repro.heard; repro.heard=false; repro.brakes++; repro.pressAt=null; }
+    renderRepro();
+  }
+  function reproTick(a){
+    if(!repro || repro.done) return;
+    if(S.speed>10){ repro=null; setView('vDrive'); toast('속도가 10km/h를 넘어서 테스트를 멈췄어요'); return; }
+    if(repro.step===0){ const ok=[S.speed===0,!S.window,!S.music]; ok.forEach((o,i)=>repro.ok['0:'+i]=o); if(ok.every(Boolean) && now()-repro.startAt>2500){ repro.step=1; } renderRepro(); }
+    else if(repro.step===1 && repro.ok['1:0'] && repro.ok['1:1']){ repro.step=2; renderRepro(); }
+    else if(repro.step===3){ if(S.brake && a.tonal){ if(!repro.wasT){ repro.squeals++; repro.heard=true; } } repro.wasT = S.brake && a.tonal;
+      if(repro.brakes>=3){ repro.done=true; repro.squeals=Math.min(repro.squeals,3); renderRepro(); } }
+  }
+  $('safeBtn').addEventListener('click',()=>{ if(!repro) return; repro.ok['2:0']=true; repro.step=3; renderRepro(); });
+
+  // ---------------- mechanic / repair / navi ----------------
+  function openMech(){
+    setView('vMech');
+    $('mechImg').src = snapImg || spec.toDataURL();
+    $('mechSub').textContent = `차주 기록 ${records.length}건 · 원래 소리와 그 순간의 차량 기록`;
+    $('mechInfo').innerHTML = '브레이크 <b>밟는 중</b><br>속도 <b>18~30 km/h</b><br>창문 <b>닫힘</b> · 와이퍼 <b>꺼짐</b><br>경고등 <b>없음</b>';
+  }
+  $('mechPlay').addEventListener('click',()=>{
+    const cols = snapBrake || [], dur=15, T0=ac.currentTime+.1;
+    const n=noiseSrc(), lp=ac.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=900; const g=ac.createGain(); g.gain.value=.07;
+    n.connect(lp).connect(g).connect(master); n.start(T0); n.stop(T0+dur);
+    const o=ac.createOscillator(); o.frequency.value=4200; const og=ac.createGain(); og.gain.value=0; o.connect(og).connect(master); o.start(T0); o.stop(T0+dur);
+    cols.forEach((b,i)=>og.gain.setValueAtTime(b?.045:0, T0+i/20));
+    const ph=$('playhead'), img=$('mechImg'); ph.style.display='block'; const st=now();
+    (function step(){ const p=(now()-st)/(dur*1000); if(p>=1){ph.style.display='none';return;} ph.style.left=(img.offsetLeft+p*img.clientWidth)+'px'; requestAnimationFrame(step); })();
+  });
+  document.querySelectorAll('#mechChips .chip').forEach(c=>c.addEventListener('click',()=>{ document.querySelectorAll('#mechChips .chip').forEach(x=>x.classList.remove('sel')); c.classList.add('sel'); toast(`"${c.textContent}" 조건으로 재현 테스트를 안내할게요`); }));
+  function openRepair(){
+    setView('vRepair'); $('bBefore').style.height='0'; $('bAfter').style.height='0';
+    setTimeout(()=>{ $('bBefore').style.height='85%'; $('bAfter').style.height='8%'; }, 150);
+  }
+  function openNavi(){
+    setView('vNavi');
+    $('naviList').innerHTML=[['블루핸즈 ○○점 (예시)','2.1km · 약 7분'],['오토큐 ○○점 (예시)','3.4km · 약 11분'],['블루핸즈 △△점 (예시)','4.0km · 약 13분']]
+      .map(([nm,ds])=>`<div class="place"><div><div class="nm">${nm}</div><div class="ds">${ds}</div></div><button class="btnp" data-go>길 안내</button></div>`).join('');
+    document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{ toast('NaviHelper 길 안내 요청 (시뮬레이션)'); voiceBubble('길 안내를 시작할게요. 도착하면 기록을 정비사에게 보여 주세요.'); }));
+  }
+
+  // ---------------- narration files ----------------
+  const narr={};
+  $('narrBtn').addEventListener('click',()=>$('narrFiles').click());
+  $('narrFiles').addEventListener('change',e=>{ [...e.target.files].forEach(f=>narr[f.name.toLowerCase()]=f); $('narrState').textContent=`나레이션 ${Object.keys(narr).length}개 불러옴`; });
+
+  // ---------------- demo helpers ----------------
+  const capEl=$('cap'), ringEl=$('ring');
+  function cap(t){ if(!t){capEl.style.display='none';return;} capEl.textContent=t; capEl.style.display='block'; }
+  function ring(el,pad=6){ if(!el){ringEl.style.display='none';return;} if(typeof el==='string') el=document.querySelector(el); const r=el.getBoundingClientRect();
+    Object.assign(ringEl.style,{display:'block',left:(r.left-pad)+'px',top:(r.top-pad)+'px',width:(r.width+pad*2)+'px',height:(r.height+pad*2)+'px'}); }
+  function flashCtl(el){ if(typeof el==='string') el=document.querySelector(el); if(!el) return; el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),900); }
+  function slide(id,target,ms){ const el=$(id), from=+el.value, steps=Math.max(1,Math.round(ms/50)); flashCtl(el);
+    return new Promise(res=>{ let i=0; const h=setInterval(()=>{ i++; el.value=Math.round(from+(target-from)*i/steps); el.dispatchEvent(new Event('input')); if(i>=steps){clearInterval(h);res();} },50); }); }
+  async function press(k,ms){ flashCtl(`.tog[data-k="${k}"]`); setTog(k,true); await wait(ms); setTog(k,false); }
+  async function tog(k,v){ flashCtl(`.tog[data-k="${k}"]`); setTog(k,v); }
+  function say(file,estSec,bubbleText){
+    if(bubbleText) voiceBubble(bubbleText, Math.max(3500, estSec*1000+800));
+    const f=narr[file.toLowerCase()];
+    if(!f) return wait(estSec*1000);
+    return new Promise(res=>{ const el=new Audio(URL.createObjectURL(f)); const src=ac.createMediaElementSource(el); src.connect(narrBus);
+      let done=false; const fin=()=>{ if(!done){done=true; res();} }; el.onended=fin; el.onerror=fin; setTimeout(fin, estSec*2000+6000); el.play().catch(fin); });
+  }
+  async function titleCard(html){ $('title').innerHTML=html; $('title').style.display='flex'; }
+  function hideTitle(){ $('title').style.display='none'; }
+
+  // ---------------- sound track recorder ----------------
+  let recorder, chunks=[], trackUrl=null;
+  function startTrack(){ chunks=[]; recorder=new MediaRecorder(recDest.stream); recorder.ondataavailable=e=>chunks.push(e.data); recorder.start(); }
+  function stopTrack(){ return new Promise(res=>{ recorder.onstop=async()=>{ try{ const buf=await new Blob(chunks).arrayBuffer(); const ab=await ac.decodeAudioData(buf); trackUrl=URL.createObjectURL(wav(ab)); downloadTrack(); }catch(e){ toast('소리 트랙 변환에 실패했어요'); } res(); }; recorder.stop(); }); }
+  function downloadTrack(){ if(!trackUrl) return; const a=document.createElement('a'); a.href=trackUrl; a.download='soundguardian_소리트랙.wav'; a.click(); $('dlBtn').style.display='inline-block'; }
+  $('dlBtn').addEventListener('click',downloadTrack);
+  function wav(ab){ const ch=Math.min(2,ab.numberOfChannels), len=ab.length, sr=ab.sampleRate, out=new DataView(new ArrayBuffer(44+len*ch*2));
+    const w=(o,s)=>{for(let i=0;i<s.length;i++) out.setUint8(o+i,s.charCodeAt(i));};
+    w(0,'RIFF'); out.setUint32(4,36+len*ch*2,true); w(8,'WAVE'); w(12,'fmt '); out.setUint32(16,16,true); out.setUint16(20,1,true); out.setUint16(22,ch,true);
+    out.setUint32(24,sr,true); out.setUint32(28,sr*ch*2,true); out.setUint16(32,ch*2,true); out.setUint16(34,16,true); w(36,'data'); out.setUint32(40,len*ch*2,true);
+    const data=[...Array(ch)].map((_,c)=>ab.getChannelData(c)); let o=44;
+    for(let i=0;i<len;i++) for(let c=0;c<ch;c++){ const s=Math.max(-1,Math.min(1,data[c][i])); out.setInt16(o, s<0?s*0x8000:s*0x7fff, true); o+=2; }
+    return new Blob([out],{type:'audio/wav'}); }
+
+  // ---------------- the demo scenario (follows 나레이션_대본.md) ----------------
+  let demoRunning=false;
+  async function runDemo(){
+    demoRunning=true; document.body.classList.add('demo');
+    const cnt=$('count'); cnt.style.display='flex';
+    for(const n of ['3','2','1']){ cnt.textContent=n; await wait(800); }
+    cnt.textContent=''; cnt.classList.add('flash'); startTrack(); beep(); await wait(120); cnt.classList.remove('flash'); cnt.style.display='none';
+
+    // 0 title
+    titleCard(`<h1>Sound<span>Guardian</span></h1><div class="lead">정비소에선 안 나는 그 소리, 차가 대신 기억하고 재현합니다</div><div class="sub">Pleos Connect 차량용 앱 · 동작 시뮬레이션</div>`);
+    await say('00_N.mp3',6); await wait(500); hideTitle();
+
+    // 1 driving
+    cap('운전 중에는 화면 알림 없이'); ring('.bezel',4);
+    const s1=say('01_N.mp3',8); await slide('speed',30,1500); await wait(2500); ring('#secSound'); await s1; await wait(400);
+
+    // 2 situations
+    cap('내 차의 평소 소리를 상황별로'); ring('#secSit');
+    const s2=say('02_N.mp3',9);
+    for(const s of SITS){ sitOverride=s; await wait(900); } sitOverride=null; await s2; await wait(400);
+
+    // 3 squeal without brake
+    cap('조작과 상관없는 소리는 지켜보기만'); ring('#secSound');
+    const s3=say('03_N.mp3',9); await wait(2200); S.manual=true; flashCtl('#squealBtn'); await wait(1600); S.manual=false; ring('#secJudge'); await s3; await wait(1000);
+
+    // 4 squeal with brake
+    cap('제동할 때만 나는 소리 → 증거로 저장'); ring('#secSound');
+    const s4=say('04_N.mp3',12); setTog('fault',true); await wait(1500); await press('brake',2000); ring('#secJudge'); await wait(2500); ring('#secStage'); await s4;
+    cap('안내는 음성 한 문장만'); ring('.bezel',4);
+    await say('04_C.mp3',5,'브레이크를 밟을 때 나는 소리를 세 번 기록했어요. 운행이 끝나면 확인해 보세요.'); await wait(600);
+
+    // 5 wiper
+    cap('차가 아는 소리는 걸러냄'); ring('#secJudge');
+    const s5=say('05_N.mp3',5); await tog('wiper',true); await wait(Math.max(3200,0)); await s5; await tog('wiper',false); await wait(400);
+
+    // 6 report
+    cap('지난달의 내 차와 비교'); ring(null);
+    await slide('speed',0,1200); flashCtl('#endBtn'); openReport(); await wait(300); ring('#cmpCard');
+    await say('06_N.mp3',12); await wait(600);
+
+    // 7 repro: stationary
+    cap('차가 안내하는 재현 테스트'); ring('#goRepro'); await wait(900); startRepro(); ring('.bezel',4);
+    await say('07_N.mp3',9);
+    const s7=say('07_C.mp3',2.5,'에어컨을 켰다가 꺼 주세요.'); await wait(600); await tog('ac',true); await wait(1500); await tog('ac',false); await s7; await wait(800);
+
+    // 8 repro: driving items
+    cap('안전한 곳에서만 주행 항목'); ring('#safeBtn');
+    await say('08_N1.mp3',5); $('safeBtn').click(); ring('.bezel',4);
+    await say('08_C.mp3',4,'시속 10킬로미터 이하로 가다가, 가볍게 세 번 제동해 주세요.');
+    cap('실제 조작을 신호로 확인하며 녹음');
+    const s8=say('08_N2.mp3',8); await slide('speed',8,700);
+    for(let i=0;i<3;i++){ await press('brake',850); await wait(450); }
+    await slide('speed',0,500); ring('#instr'); await s8; await wait(1200);
+
+    // 9 mechanic
+    cap('정비사는 소리와 조작을 함께'); openMech(); ring('.bezel',4);
+    const s9=say('09_N.mp3',11); await wait(1000); $('mechPlay').click(); ring('#mechImg'); await wait(5000);
+    ring('#mechChips'); await wait(1200); document.querySelectorAll('#mechChips .chip')[1].click(); await s9; await wait(600);
+
+    // 10 repair
+    cap('고친 뒤 정말 나아졌는지'); openRepair(); ring('.bezel',4);
+    await say('10_N.mp3',10); await wait(600);
+
+    // 11 navi
+    cap('정비소까지 바로'); openNavi(); ring('#naviList');
+    const s11=say('11_N.mp3',4); await wait(1500); document.querySelector('[data-go]').click(); await s11; await wait(800);
+
+    // 12 outro
+    cap(null); ring(null);
+    titleCard(`<h1>Sound<span>Guardian</span></h1><div class="lead">평소와 다른 소리를 기억하고, 재현하고, 정비소까지</div>
+      <div class="sdk"><span>Vehicle SDK</span><span>FusedLocation</span><span>NaviHelper</span><span>TextToSpeech</span><span>SpeechToText</span><span>Gleo Interface</span></div>
+      <div class="sub">웹 동작 시뮬레이션입니다. 실제 앱은 Pleos Connect SDK로 Kotlin 구현 예정입니다.</div>`);
+    await say('12_N.mp3',6); await wait(1500);
+    await stopTrack(); demoRunning=false;
+  }
+
+  // ---------------- start ----------------
+  function boot(){ initAudio(); $('start').style.display='none'; sx.fillStyle='#0f1520'; sx.fillRect(0,0,spec.width,spec.height); renderRecords(); renderStage(); setInterval(tick,50); }
+  $('manualBtn').addEventListener('click',boot);
+  $('demoBtn').addEventListener('click',()=>{ boot(); runDemo(); });
+})();
+</script>
+</body>
+</html>
